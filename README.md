@@ -13,7 +13,6 @@ no build step, no dependencies.
 
 ## Contents
 
-- [What's inside](#whats-inside)
 - [The five modes](#the-five-modes)
 - [The game theory (the actual point)](#the-game-theory-the-actual-point)
 - [How the engine works](#how-the-engine-works)
@@ -22,20 +21,6 @@ no build step, no dependencies.
 - [Project files](#project-files)
 - [Roadmap](#roadmap)
 - [Notes & disclaimer](#notes--disclaimer)
-
----
-
-## What's inside
-
-| File | What it is |
-|------|------------|
-| `game-theory-fifa.html` | **The main app** — five interactive modes, all in one file |
-| `game-theory-fifa-mini.html` | A minimal single-match predictor (the same engine, stripped down) |
-| `game-theory-fifa-accuracy.xlsx` | The 2022 World Cup backtest: model v1 vs v2, metrics, and roadmap |
-| `README.md` | This file |
-
-No frameworks, no `npm install`. Vanilla HTML/CSS/JS. Fonts load from Google Fonts; everything else
-runs offline.
 
 ---
 
