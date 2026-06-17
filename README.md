@@ -157,32 +157,6 @@ needs many tournaments. Full match-by-match detail and the improvement roadmap a
 
 ---
 
-## Run it
-
-It's a single file. Either:
-
-```bash
-# clone, then just open the file
-open game-theory-fifa.html        # macOS
-xdg-open game-theory-fifa.html    # Linux
-# or double-click it
-```
-
-Or drop the repo on **GitHub Pages** and share the link — no build, no server needed.
-
----
-
-## Project files
-
-```
-game-theory-fifa.html   # the playground (5 modes) — start here
-game-theory-fifa-mini.html          # minimal single-match predictor
-game-theory-fifa-accuracy.xlsx     # 2022 backtest + metrics + roadmap
-README.md
-```
-
----
-
 ## Roadmap
 
 Built so far: Predict, Manager Duel / Can-You-Beat-Nash, Watch Nash Emerge, Battlefield, Campaign,
