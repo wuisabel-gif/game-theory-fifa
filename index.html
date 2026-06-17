@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Game Theory FIFA — a game-theory football playground</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg1:#06201a; --bg2:#0a2b22;
+    --panel:#0e2c23; --panel-hi:#12382b;
+    --line:#234b3d; --line-bright:#2f6150;
+    --chalk:#eef1e6; --dim:#92a89d;
+    --amber:#f6b73f; --amber-dim:#caa24a;
+    --cyan:#4fd6c4; --draw:#7e918a;
+    --good:#5fc07f; --bad:#e0816e;
+    --r:16px; --shadow:0 14px 38px rgba(0,0,0,.36);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;color:var(--chalk);font-family:"Inter",system-ui,sans-serif;line-height:1.55;
+    -webkit-font-smoothing:antialiased;padding:clamp(14px,3.5vw,40px);
+    background:
+      radial-gradient(140% 90% at 50% -20%, #155041 0%, var(--bg2) 38%, var(--bg1) 78%) fixed;}
+  .wrap{max-width:900px;margin:0 auto;position:relative;z-index:1;}
+
+  /* ---------- football field backdrop ---------- */
+  .pitch-field{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none;}
+  .pitch-field .stripes{position:absolute;inset:0;
+    background:repeating-linear-gradient(90deg, rgba(255,255,255,0.020) 0 7vw, rgba(0,0,0,0.05) 7vw 14vw);}
+  .pitch-field .lines{position:absolute;inset:0;width:100%;height:100%;}
+  .ball{position:fixed;left:0;bottom:10%;width:56px;height:56px;z-index:0;opacity:.17;
+    filter:drop-shadow(0 6px 10px rgba(0,0,0,.35));animation:roll 18s linear infinite;will-change:transform;}
+  .ball.two{bottom:auto;top:13%;width:36px;opacity:.10;animation:roll2 26s linear infinite;animation-delay:-7s;}
+  @keyframes roll{from{transform:translateX(-18vw) rotate(0deg);}to{transform:translateX(120vw) rotate(1260deg);}}
+  @keyframes roll2{from{transform:translateX(120vw) rotate(0deg);}to{transform:translateX(-18vw) rotate(-1260deg);}}
+  a{color:var(--amber);text-decoration:none;border-bottom:1px solid transparent;}
+  a:hover{border-bottom-color:var(--amber);}
+  h2{margin:0;}
+
+  /* ---------- hero ---------- */
+  .top{position:relative;border:1px solid var(--line);border-radius:var(--r);overflow:hidden;
+    background:linear-gradient(165deg,#11392d,#0a241d 70%);box-shadow:var(--shadow);
+    padding:clamp(22px,4vw,40px);}
+  .pitch-bg{position:absolute;inset:0;opacity:.5;pointer-events:none;}
+  .eyebrow{position:relative;font-family:"Space Mono",monospace;font-size:.7rem;letter-spacing:.34em;
+    text-transform:uppercase;color:var(--amber);margin:0 0 14px;}
+  h1{position:relative;font-family:"Anton",sans-serif;font-weight:400;font-size:clamp(2.6rem,9vw,5rem);
+    line-height:.88;letter-spacing:.012em;text-transform:uppercase;margin:0;}
+  h1 .accent{color:var(--amber);-webkit-text-stroke:0;}
+  .lede{position:relative;max-width:54ch;color:var(--dim);margin:16px 0 0;font-size:1.04rem;}
+
+  /* ---------- tabs (segmented) ---------- */
+  .tabs{display:flex;flex-wrap:wrap;gap:6px;margin:22px 0 0;padding:6px;border:1px solid var(--line);
+    border-radius:13px;background:rgba(0,0,0,.18);width:fit-content;max-width:100%;position:relative;}
+  .tab{font-family:"Space Mono",monospace;font-size:.73rem;letter-spacing:.06em;text-transform:uppercase;
+    background:transparent;color:var(--dim);border:none;border-radius:9px;padding:10px 15px;cursor:pointer;
+    transition:all .18s ease;white-space:nowrap;}
+  .tab:hover{color:var(--chalk);}
+  .tab.active{background:var(--amber);color:#10241d;font-weight:700;box-shadow:0 4px 14px rgba(246,183,63,.3);}
+  .tab:focus-visible{outline:2px solid var(--chalk);outline-offset:2px;}
+
+  /* ---------- shared picker ---------- */
+  .picker{display:grid;grid-template-columns:1fr auto 1fr;gap:14px;align-items:stretch;margin-top:18px;}
+  .card{border:1px solid var(--line);border-radius:var(--r);background:linear-gradient(180deg,var(--panel-hi),var(--panel));
+    box-shadow:var(--shadow);}
+  .team-card{padding:16px 15px;display:flex;flex-direction:column;gap:11px;position:relative;}
+  .team-card::before{content:"";position:absolute;top:0;left:16px;right:16px;height:3px;border-radius:3px;}
+  .team-card[data-side="a"]::before{background:var(--amber);}
+  .team-card[data-side="b"]::before{background:var(--cyan);}
+  .team-tag{font-family:"Space Mono",monospace;font-size:.64rem;letter-spacing:.26em;text-transform:uppercase;color:var(--dim);margin-top:4px;}
+  .team-card[data-side="a"] .team-tag{color:var(--amber);}
+  .team-card[data-side="b"] .team-tag{color:var(--cyan);}
+  .flag{display:inline-flex;align-items:center;justify-content:center;width:46px;height:46px;border-radius:50%;
+    background:#0a201a;border:1px solid var(--line);font-size:1.5rem;line-height:1;flex:none;}
+  select{width:100%;appearance:none;background:#0a201a;color:var(--chalk);border:1px solid var(--line);border-radius:10px;
+    padding:11px 32px 11px 12px;font-family:"Inter",sans-serif;font-size:.94rem;font-weight:500;cursor:pointer;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2392a89d' stroke-width='1.6' fill='none'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;background-position:right 12px center;}
+  select:hover{border-color:var(--line-bright);}
+  select:focus-visible{outline:2px solid var(--amber);outline-offset:2px;}
+  .elo{font-family:"Space Mono",monospace;font-size:.72rem;color:var(--dim);}
+  .elo b{color:var(--chalk);}
+  .vs{display:flex;align-items:center;justify-content:center;font-family:"Anton",sans-serif;font-size:1.5rem;color:var(--dim);}
+  .btnrow{margin-top:15px;display:flex;gap:11px;flex-wrap:wrap;align-items:center;}
+  button.go{font-family:"Anton",sans-serif;font-size:1.05rem;letter-spacing:.05em;text-transform:uppercase;
+    background:var(--amber);color:#10241d;border:none;border-radius:11px;padding:14px 28px;cursor:pointer;
+    box-shadow:0 6px 18px rgba(246,183,63,.28);transition:all .14s ease;}
+  button.go:hover{filter:brightness(1.07);transform:translateY(-2px);box-shadow:0 10px 24px rgba(246,183,63,.36);}
+  button.go:active{transform:translateY(0);}
+  button.go:focus-visible{outline:2px solid var(--chalk);outline-offset:3px;}
+  button.ghost{background:transparent;color:var(--dim);border:1px solid var(--line);border-radius:11px;
+    padding:13px 16px;cursor:pointer;font-family:"Space Mono",monospace;font-size:.74rem;letter-spacing:.08em;text-transform:uppercase;transition:all .14s ease;}
+  button.ghost:hover{color:var(--chalk);border-color:var(--line-bright);transform:translateY(-1px);}
+  button.ghost:focus-visible{outline:2px solid var(--amber);outline-offset:2px;}
+
+  .panel{border:1px solid var(--line);border-radius:var(--r);background:linear-gradient(180deg,var(--panel-hi),var(--panel));
+    box-shadow:var(--shadow);padding:clamp(18px,3.2vw,26px);margin-top:16px;}
+  .panel .h{font-family:"Space Mono",monospace;font-size:.7rem;letter-spacing:.26em;text-transform:uppercase;color:var(--dim);margin:0 0 18px;font-weight:700;}
+  .view{display:none;animation:fade .4s ease;}
+  .view.active{display:block;}
+  @keyframes fade{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+  .hint{color:var(--dim);font-size:.94rem;margin:0 0 16px;}
+  .note{color:var(--dim);font-size:.84rem;margin-top:14px;line-height:1.55;}
+
+  /* predict */
+  .scoreline{display:flex;align-items:center;justify-content:center;gap:18px;}
+  .st{display:flex;flex-direction:column;align-items:center;gap:5px;width:120px;}
+  .st .flag{width:54px;height:54px;font-size:1.8rem;}
+  .st .nm{font-size:.8rem;color:var(--dim);text-align:center;}
+  .score-num{font-family:"Anton",sans-serif;font-size:clamp(2.8rem,11vw,4.4rem);line-height:1;}
+  .st[data-side="a"] .score-num{color:var(--amber);}
+  .st[data-side="b"] .score-num{color:var(--cyan);}
+  .dash{font-family:"Anton",sans-serif;font-size:2.2rem;color:var(--dim);}
+  .verdict{text-align:center;font-family:"Space Mono",monospace;font-size:.78rem;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);margin-top:8px;}
+  .verdict b{color:var(--chalk);}
+  .prob-bar{display:flex;height:44px;border-radius:11px;overflow:hidden;border:1px solid var(--line);}
+  .seg{display:flex;align-items:center;justify-content:center;font-family:"Space Mono",monospace;font-size:.82rem;font-weight:700;color:#0b1c16;transition:flex-basis .8s cubic-bezier(.2,.8,.2,1);min-width:0;overflow:hidden;white-space:nowrap;}
+  .seg.a{background:var(--amber);} .seg.d{background:var(--draw);} .seg.b{background:var(--cyan);}
+  .prob-key{display:flex;justify-content:space-between;margin-top:10px;font-family:"Space Mono",monospace;font-size:.73rem;color:var(--dim);}
+  .prob-key b{color:var(--chalk);}
+  .strats{display:grid;grid-template-columns:1fr 1fr;gap:22px;}
+  .strat-head{font-family:"Space Mono",monospace;font-size:.76rem;letter-spacing:.06em;text-transform:uppercase;margin-bottom:14px;display:flex;align-items:center;gap:8px;}
+  .dot{width:10px;height:10px;border-radius:50%;flex:none;}
+  .strat-side[data-side="a"] .dot{background:var(--amber);}
+  .strat-side[data-side="b"] .dot{background:var(--cyan);}
+  .srow{margin-bottom:11px;}
+  .srow .lbl{display:flex;justify-content:space-between;font-family:"Space Mono",monospace;font-size:.73rem;color:var(--dim);margin-bottom:5px;}
+  .srow .lbl b{color:var(--chalk);}
+  .track{height:9px;border-radius:6px;background:#0a1f19;overflow:hidden;}
+  .fill{height:100%;border-radius:6px;transition:width .8s cubic-bezier(.2,.8,.2,1);width:0;}
+  .strat-side[data-side="a"] .fill{background:linear-gradient(90deg,var(--amber-dim),var(--amber));}
+  .strat-side[data-side="b"] .fill{background:linear-gradient(90deg,#3aa99a,var(--cyan));}
+
+  /* duel */
+  .duel-controls{display:flex;flex-wrap:wrap;gap:11px;align-items:center;margin-bottom:18px;}
+  .duel-controls label{font-family:"Space Mono",monospace;font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);}
+  .tactic-btns{display:grid;grid-template-columns:repeat(3,1fr);gap:11px;margin:16px 0;}
+  .tbtn{border:1px solid var(--line);background:linear-gradient(180deg,var(--panel-hi),var(--panel));color:var(--chalk);border-radius:13px;padding:17px 10px;cursor:pointer;font-family:"Inter",sans-serif;font-weight:600;text-align:center;transition:all .14s ease;}
+  .tbtn span{display:block;font-family:"Space Mono",monospace;font-size:.6rem;color:var(--dim);letter-spacing:.06em;text-transform:uppercase;margin-top:6px;}
+  .tbtn:hover{border-color:var(--amber);transform:translateY(-3px);box-shadow:0 8px 20px rgba(0,0,0,.3);}
+  .tbtn:focus-visible{outline:2px solid var(--amber);outline-offset:2px;}
+  .tbtn:disabled{opacity:.4;cursor:default;transform:none;box-shadow:none;}
+  .round-card{border:1px dashed var(--line-bright);border-radius:13px;padding:18px;text-align:center;min-height:100px;display:flex;flex-direction:column;justify-content:center;gap:7px;background:rgba(0,0,0,.12);}
+  .round-card .big{font-family:"Anton",sans-serif;font-size:1.9rem;}
+  .round-card .reason{font-family:"Space Mono",monospace;font-size:.76rem;color:var(--dim);}
+  .tally{display:flex;justify-content:space-around;text-align:center;margin:18px 0 6px;}
+  .tally .v{font-family:"Anton",sans-serif;font-size:2.1rem;}
+  .tally .k{font-family:"Space Mono",monospace;font-size:.64rem;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);}
+  .you .v{color:var(--amber);} .nash .v{color:var(--cyan);}
+
+  /* emerge */
+  .emerge-bars{display:grid;grid-template-columns:1fr 1fr;gap:24px;}
+  .ebar-row{margin-bottom:10px;}
+  .ebar-row .lbl{display:flex;justify-content:space-between;font-family:"Space Mono",monospace;font-size:.73rem;color:var(--dim);margin-bottom:5px;}
+  .ebar-row .lbl b{color:var(--chalk);}
+  .etrack{height:15px;border-radius:7px;background:#0a1f19;overflow:hidden;}
+  .efill{height:100%;border-radius:7px;width:0;transition:width .09s linear;}
+  .iter-readout{font-family:"Anton",sans-serif;font-size:2.4rem;text-align:center;}
+  .iter-readout small{font-family:"Space Mono",monospace;font-size:.66rem;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);display:block;}
+
+  /* battlefield */
+  .field-wrap{display:grid;grid-template-columns:1fr 1fr;gap:22px;align-items:center;}
+  .heat{border-collapse:separate;border-spacing:5px;width:100%;font-family:"Space Mono",monospace;}
+  .heat th{font-size:.58rem;color:var(--dim);font-weight:400;text-transform:uppercase;letter-spacing:.04em;padding:2px;}
+  .heat td{border-radius:9px;text-align:center;padding:15px 4px;font-weight:700;font-size:.84rem;color:#0b1c16;cursor:default;transition:transform .12s ease;}
+  .heat td:hover{transform:scale(1.07);}
+  .heat-reason{font-family:"Space Mono",monospace;font-size:.74rem;color:var(--dim);min-height:50px;margin-top:12px;border-left:2px solid var(--amber);padding-left:11px;line-height:1.5;}
+  .heat-reason b{color:var(--chalk);}
+
+  /* campaign */
+  .camp-start{text-align:center;padding:14px 0;}
+  .camp-start select{max-width:280px;margin:0 auto 16px;display:block;}
+  .round-title{font-family:"Anton",sans-serif;font-size:1.7rem;text-transform:uppercase;text-align:center;margin:0 0 4px;}
+  .round-sub{text-align:center;font-family:"Space Mono",monospace;font-size:.7rem;letter-spacing:.16em;text-transform:uppercase;color:var(--amber);margin-bottom:18px;}
+  .path{display:flex;flex-direction:column;gap:7px;margin-bottom:18px;}
+  .path-row{display:grid;grid-template-columns:74px 1fr auto;gap:10px;align-items:center;font-family:"Space Mono",monospace;font-size:.8rem;padding:9px 12px;border-radius:9px;background:rgba(0,0,0,.14);border:1px solid transparent;}
+  .path-row.cur{border-color:var(--amber);}
+  .path-row .rd{color:var(--dim);font-size:.66rem;letter-spacing:.08em;text-transform:uppercase;}
+  .path-row .res{font-weight:700;}
+  .path-row .w{color:var(--good);} .path-row .l{color:var(--bad);} .path-row .pend{color:var(--dim);}
+  .press .opp{display:flex;align-items:center;gap:12px;margin-bottom:14px;}
+  .press .opp .meta{display:flex;flex-direction:column;}
+  .press .opp .nm{font-family:"Anton",sans-serif;font-size:1.3rem;}
+  .press .opp .el{font-family:"Space Mono",monospace;font-size:.7rem;color:var(--dim);}
+  .opp-strat{margin:6px 0 16px;}
+  .yourcall{font-family:"Space Mono",monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);margin-bottom:10px;}
+  .camp-result{text-align:center;}
+  .camp-result .sc{font-family:"Anton",sans-serif;font-size:3rem;}
+  .badge{display:inline-block;font-family:"Space Mono",monospace;font-size:.74rem;letter-spacing:.12em;text-transform:uppercase;padding:6px 14px;border-radius:20px;margin-top:8px;font-weight:700;}
+  .badge.win{background:rgba(95,192,127,.2);color:var(--good);border:1px solid var(--good);}
+  .badge.lose{background:rgba(224,129,110,.2);color:var(--bad);border:1px solid var(--bad);}
+  .champion{text-align:center;padding:18px 0;}
+  .champion .trophy{font-size:4rem;animation:pop .6s ease;}
+  @keyframes pop{0%{transform:scale(0) rotate(-20deg);}70%{transform:scale(1.25) rotate(8deg);}100%{transform:scale(1);}}
+  .champion .ttl{font-family:"Anton",sans-serif;font-size:2.4rem;text-transform:uppercase;margin:8px 0 2px;color:var(--amber);}
+
+  details{border:1px solid var(--line);border-radius:var(--r);background:var(--panel);margin-top:16px;box-shadow:var(--shadow);}
+  summary{cursor:pointer;list-style:none;padding:17px 22px;font-family:"Space Mono",monospace;font-size:.7rem;letter-spacing:.18em;text-transform:uppercase;color:var(--dim);}
+  summary::-webkit-details-marker{display:none;}
+  summary::after{content:"+";float:right;color:var(--amber);font-weight:700;}
+  details[open] summary::after{content:"\2013";}
+  .det-body{padding:0 22px 22px;color:var(--dim);font-size:.92rem;}
+  .det-body code{font-family:"Space Mono",monospace;color:var(--chalk);}
+
+  footer{margin:28px 4px 0;color:var(--dim);font-size:.8rem;line-height:1.65;}
+  .legal{margin-top:16px;padding-top:14px;border-top:1px solid var(--line);font-family:"Space Mono",monospace;font-size:.72rem;letter-spacing:.04em;display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;}
+  .legal .gh{display:inline-flex;align-items:center;gap:6px;}
+  .legal svg{width:15px;height:15px;fill:currentColor;}
+
+  @media(max-width:600px){
+    .picker{grid-template-columns:1fr;} .vs{padding:2px 0;}
+    .strats,.emerge-bars,.field-wrap{grid-template-columns:1fr;}
+    .tabs{width:100%;justify-content:center;}
+  }
+  @media(prefers-reduced-motion:reduce){*{transition:none !important;animation:none !important;}}
+</style>
+</head>
+<body>
+<div class="pitch-field" aria-hidden="true">
+  <div class="stripes"></div>
+  <svg class="lines" viewBox="0 0 1000 600" preserveAspectRatio="xMidYMid slice">
+    <g fill="none" stroke="rgba(238,241,230,0.07)" stroke-width="2">
+      <rect x="22" y="22" width="956" height="556"/>
+      <line x1="500" y1="22" x2="500" y2="578"/>
+      <circle cx="500" cy="300" r="74"/>
+      <rect x="22" y="170" width="150" height="260"/>
+      <rect x="22" y="232" width="58" height="136"/>
+      <path d="M172,250 A60 60 0 0 1 172,350"/>
+      <rect x="828" y="170" width="150" height="260"/>
+      <rect x="920" y="232" width="58" height="136"/>
+      <path d="M828,250 A60 60 0 0 0 828,350"/>
+      <path d="M22,46 A24 24 0 0 1 46,22"/>
+      <path d="M954,22 A24 24 0 0 1 978,46"/>
+      <path d="M22,554 A24 24 0 0 0 46,578"/>
+      <path d="M978,554 A24 24 0 0 0 954,578"/>
+    </g>
+    <g fill="rgba(238,241,230,0.08)"><circle cx="500" cy="300" r="3"/><circle cx="112" cy="300" r="2.5"/><circle cx="888" cy="300" r="2.5"/></g>
+  </svg>
+  <svg class="ball" viewBox="0 0 100 100">
+    <circle cx="50" cy="50" r="46" fill="#f4f6ef" stroke="#0b1c16" stroke-width="2.5"/>
+    <g stroke="#15302a" stroke-width="2.2" fill="none">
+      <line x1="50" y1="34" x2="50" y2="12"/><line x1="65.2" y1="45.1" x2="84" y2="34"/>
+      <line x1="59.4" y1="62.9" x2="73" y2="82"/><line x1="40.6" y1="62.9" x2="27" y2="82"/><line x1="34.8" y1="45.1" x2="16" y2="34"/>
+    </g>
+    <polygon points="50,34 65.2,45.1 59.4,62.9 40.6,62.9 34.8,45.1" fill="#15302a"/>
+    <g fill="#15302a"><circle cx="50" cy="12" r="7"/><circle cx="84" cy="34" r="7"/><circle cx="73" cy="82" r="7"/><circle cx="27" cy="82" r="7"/><circle cx="16" cy="34" r="7"/></g>
+  </svg>
+  <svg class="ball two" viewBox="0 0 100 100">
+    <circle cx="50" cy="50" r="46" fill="#f4f6ef" stroke="#0b1c16" stroke-width="2.5"/>
+    <g stroke="#15302a" stroke-width="2.2" fill="none">
+      <line x1="50" y1="34" x2="50" y2="12"/><line x1="65.2" y1="45.1" x2="84" y2="34"/>
+      <line x1="59.4" y1="62.9" x2="73" y2="82"/><line x1="40.6" y1="62.9" x2="27" y2="82"/><line x1="34.8" y1="45.1" x2="16" y2="34"/>
+    </g>
+    <polygon points="50,34 65.2,45.1 59.4,62.9 40.6,62.9 34.8,45.1" fill="#15302a"/>
+    <g fill="#15302a"><circle cx="50" cy="12" r="7"/><circle cx="84" cy="34" r="7"/><circle cx="73" cy="82" r="7"/><circle cx="27" cy="82" r="7"/><circle cx="16" cy="34" r="7"/></g>
+  </svg>
+</div>
+<div class="wrap">
+
+  <header class="top">
+    <svg class="pitch-bg" viewBox="0 0 900 230" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+      <g fill="none" stroke="rgba(238,241,230,0.07)" stroke-width="1.5">
+        <line x1="450" y1="0" x2="450" y2="230"/>
+        <circle cx="450" cy="115" r="60"/>
+        <rect x="0" y="55" width="70" height="120"/>
+        <rect x="830" y="55" width="70" height="120"/>
+      </g>
+    </svg>
+    <p class="eyebrow">An interactive game-theory playground</p>
+    <h1>Game Theory <span class="accent">FIFA</span></h1>
+    <p class="lede">A football predictor where the tactics aren't hidden in the math. Watch a Nash equilibrium emerge, duel the engine, run a nation through a tournament, and see why no single tactic ever wins.</p>
+    <nav class="tabs" role="tablist">
+      <button class="tab active" data-view="predict" role="tab">Predict</button>
+      <button class="tab" data-view="duel" role="tab">Manager Duel</button>
+      <button class="tab" data-view="emerge" role="tab">Watch Nash Emerge</button>
+      <button class="tab" data-view="field" role="tab">Battlefield</button>
+      <button class="tab" data-view="campaign" role="tab">Campaign</button>
+    </nav>
+  </header>
+
+  <div id="picker" class="picker">
+    <div class="card team-card" data-side="a">
+      <span class="flag" id="flagA">🇦🇷</span>
+      <span class="team-tag">Side A</span>
+      <select id="teamA" aria-label="Team A"></select>
+      <span class="elo">ELO <b id="eloA">—</b></span>
+    </div>
+    <div class="vs">v</div>
+    <div class="card team-card" data-side="b">
+      <span class="flag" id="flagB">🇫🇷</span>
+      <span class="team-tag">Side B</span>
+      <select id="teamB" aria-label="Team B"></select>
+      <span class="elo">ELO <b id="eloB">—</b></span>
+    </div>
+  </div>
+  <div class="btnrow" id="pickerBtns">
+    <button class="go" id="run">Run</button>
+    <button class="ghost" id="swap">Swap</button>
+  </div>
+
+  <!-- PREDICT -->
+  <section class="view active" id="view-predict">
+    <div class="panel" id="predictResult" style="display:none">
+      <p class="h">Predicted result</p>
+      <div class="scoreline">
+        <div class="st" data-side="a"><span class="flag" id="rFlagA"></span><span class="score-num" id="rScoreA">0</span><span class="nm" id="rNameA"></span></div>
+        <span class="dash">–</span>
+        <div class="st" data-side="b"><span class="flag" id="rFlagB"></span><span class="score-num" id="rScoreB">0</span><span class="nm" id="rNameB"></span></div>
+      </div>
+      <p class="verdict" id="verdict"></p>
+    </div>
+    <div class="panel" id="predictOdds" style="display:none">
+      <p class="h">Outcome odds</p>
+      <div class="prob-bar"><div class="seg a" id="segA"></div><div class="seg d" id="segD"></div><div class="seg b" id="segB"></div></div>
+      <div class="prob-key"><span id="keyA"></span><span id="keyD"></span><span id="keyB"></span></div>
+    </div>
+    <div class="panel" id="predictStrats" style="display:none">
+      <p class="h">Equilibrium tactics — each side's optimal mix</p>
+      <div class="strats">
+        <div class="strat-side" data-side="a"><div class="strat-head"><span class="dot"></span><span id="sNameA"></span></div><div id="stratsA"></div></div>
+        <div class="strat-side" data-side="b"><div class="strat-head"><span class="dot"></span><span id="sNameB"></span></div><div id="stratsB"></div></div>
+      </div>
+      <p class="note">No single tactic dominates, so the solution is a genuine mix. See <b>Battlefield</b> for why, or <b>Watch Nash Emerge</b> to see it solved live.</p>
+    </div>
+    <p class="hint" id="predictHint">Pick two teams and hit <b>Run</b>.</p>
+  </section>
+
+  <!-- DUEL -->
+  <section class="view" id="view-duel">
+    <div class="panel">
+      <p class="h">Manager Duel — can you beat Nash?</p>
+      <p class="hint">You're the manager. Pick a tactic each round; the engine answers with the brain set below. Cumulative <b>expected goal difference</b> is the score — beat the engine over 10 rounds and you've exploited its strategy.</p>
+      <div class="duel-controls">
+        <label for="brain">Engine brain:</label>
+        <select id="brain" style="width:auto;min-width:240px">
+          <option value="nash">Nash equilibrium (unexploitable)</option>
+          <option value="adaptive">Adaptive (punishes patterns)</option>
+          <option value="guardiola">Guardiola (attack 55%)</option>
+          <option value="mourinho">Mourinho (park bus 60%)</option>
+          <option value="klopp">Klopp (attack 70%)</option>
+        </select>
+        <button class="ghost" id="duelReset">Reset</button>
+      </div>
+      <div class="tactic-btns">
+        <button class="tbtn" data-t="0">Attack<span>overrun a passive side</span></button>
+        <button class="tbtn" data-t="1">Balanced<span>control the game</span></button>
+        <button class="tbtn" data-t="2">Park the bus<span>absorb &amp; counter</span></button>
+      </div>
+      <div class="round-card" id="roundCard"><span class="reason">Choose a tactic to start round 1.</span></div>
+      <div class="tally">
+        <div class="you"><div class="v" id="youScore">0.00</div><div class="k">You · round <span id="roundNo">0</span>/10</div></div>
+        <div class="nash"><div class="v" id="nashScore">0.00</div><div class="k" id="brainLabel">Engine</div></div>
+      </div>
+      <div class="strat-side" data-side="b" style="margin-top:8px"><div class="strat-head"><span class="dot"></span>Engine's current strategy</div><div id="aiStrat"></div></div>
+    </div>
+    <p class="hint" id="duelVerdict"></p>
+  </section>
+
+  <!-- EMERGE -->
+  <section class="view" id="view-emerge">
+    <div class="panel">
+      <p class="h">Watch a Nash equilibrium emerge</p>
+      <p class="hint">Fictitious play: each manager repeatedly plays the single best response to everything the other has done so far. Their running tactic frequencies converge to the equilibrium. Press play and watch it form.</p>
+      <div class="btnrow"><button class="go" id="playEmerge">Play</button><button class="ghost" id="replayEmerge">Replay</button></div>
+      <div class="iter-readout" id="iterReadout" style="margin:18px 0"><small>iteration</small>1</div>
+      <div class="emerge-bars">
+        <div class="strat-side" data-side="a"><div class="strat-head"><span class="dot"></span><span id="eNameA">Side A</span></div><div id="ebarsA"></div></div>
+        <div class="strat-side" data-side="b"><div class="strat-head"><span class="dot"></span><span id="eNameB">Side B</span></div><div id="ebarsB"></div></div>
+      </div>
+      <p class="note" id="emergeNote">Both managers start by committing 100% to one tactic, then learn. The mix they land on is the prediction the engine actually uses.</p>
+    </div>
+  </section>
+
+  <!-- BATTLEFIELD -->
+  <section class="view" id="view-field">
+    <div class="panel">
+      <p class="h">The tactical battlefield</p>
+      <p class="hint">Three tactics, no winner among them — they chase each other in a cycle. That cycle is exactly why the engine must mix.</p>
+      <div class="field-wrap">
+        <svg id="rps" viewBox="0 0 300 280" role="img" aria-label="Cycle of tactics"></svg>
+        <div>
+          <table class="heat" id="heat"></table>
+          <div class="heat-reason" id="heatReason">Hover a cell: each is Side A's expected goal difference for that tactic matchup. Green favours A, red favours B.</div>
+        </div>
+      </div>
+      <p class="note">Attack beats Balanced, Balanced beats Park the bus, Park the bus beats Attack. Because the advantage runs in a circle, there's no single best tactic — the stable answer is a probability over all three. That's the Nash equilibrium.</p>
+    </div>
+  </section>
+
+  <!-- CAMPAIGN -->
+  <section class="view" id="view-campaign">
+    <div class="panel">
+      <p class="h">World Cup Campaign — take a nation to glory</p>
+      <div id="campStartScreen" class="camp-start">
+        <p class="hint">Pick a nation and play a 16-team knockout. Before each match you'll see your opponent's likely tactics — choose your plan to counter them. Win four ties to lift the trophy.</p>
+        <select id="campNation" aria-label="Your nation"></select>
+        <button class="go" id="campStart">Start campaign</button>
+      </div>
+      <div id="campGame" style="display:none">
+        <p class="round-title" id="campRound">Round of 16</p>
+        <p class="round-sub" id="campSub"></p>
+        <div class="path" id="campPath"></div>
+        <div class="press" id="campPress">
+          <div class="opp">
+            <span class="flag" id="oppFlag"></span>
+            <div class="meta"><span class="nm" id="oppName"></span><span class="el" id="oppElo"></span></div>
+          </div>
+          <p class="yourcall">Opponent's likely plan</p>
+          <div class="opp-strat strat-side" data-side="b"><div id="oppStrat"></div></div>
+          <p class="yourcall">Your call</p>
+          <div class="tactic-btns">
+            <button class="tbtn ctbtn" data-t="0">Attack<span>overrun them</span></button>
+            <button class="tbtn ctbtn" data-t="1">Balanced<span>control it</span></button>
+            <button class="tbtn ctbtn" data-t="2">Park the bus<span>absorb &amp; counter</span></button>
+          </div>
+        </div>
+        <div class="camp-result" id="campResultBox" style="display:none"></div>
+      </div>
+    </div>
+  </section>
+
+  <details>
+    <summary>How the engine works</summary>
+    <div class="det-body">
+      <p>Each team's <code>Elo</code> rating sets baseline expected goals. On top, both managers play a 3-tactic game with a rock-paper-scissors structure, solved for a <code>Nash equilibrium</code> by fictitious play (the "Watch Nash Emerge" tab shows this live). The equilibrium expected goals feed a Poisson scoreline model with a <code>Dixon–Coles</code> correction for realistic draws. Campaign matches sample real scorelines and settle ties on penalties. Validated against the 2022 World Cup — see the accuracy workbook and README.</p>
+      <p>Elo ratings are illustrative estimates, not a live feed; this is a toy for exploring game theory, not betting advice.</p>
+    </div>
+  </details>
+
+  <footer>
+    <p><b>Roadmap (next):</b> a 5-formation strategy layer (turning the 3×3 game into 5×5), a Historical Upset explorer, and a match-replay commentary generator. The engine is structured so these drop in on top of the same core.</p>
+    <div class="legal">
+      <span>© 2026 wuisabel</span>
+      <a class="gh" href="https://github.com/wuisabel" target="_blank" rel="noopener">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+        github.com/wuisabel
+      </a>
+      <span>Toy model — not betting advice.</span>
+    </div>
+  </footer>
+</div>
+
+<script>
+/* ===== data ===== */
+const TEAMS=[
+ ["Argentina","🇦🇷",2105],["France","🇫🇷",2085],["Spain","🇪🇸",2045],["England","🏴",2000],
+ ["Brazil","🇧🇷",2080],["Portugal","🇵🇹",2000],["Netherlands","🇳🇱",2040],["Germany","🇩🇪",1965],
+ ["Belgium","🇧🇪",1995],["Italy","🇮🇹",1960],["Croatia","🇭🇷",1955],["Uruguay","🇺🇾",1930],
+ ["Morocco","🇲🇦",1845],["Colombia","🇨🇴",1905],["Japan","🇯🇵",1840],["USA","🇺🇸",1870],
+ ["Mexico","🇲🇽",1880],["Senegal","🇸🇳",1855],["Switzerland","🇨🇭",1900],["Denmark","🇩🇰",1905],
+ ["Korea Rep.","🇰🇷",1810],["Ecuador","🇪🇨",1820],["Nigeria","🇳🇬",1820],["Australia","🇦🇺",1755],
+ ["Canada","🇨🇦",1760],["Ghana","🇬🇭",1735],["Saudi Arabia","🇸🇦",1680],["Qatar","🇶🇦",1680]
+];
+const STRAT=["Attack","Balanced","Park the bus"];
+const STRAT_SHORT=["Attack","Balanced","Park bus"];
+const PERSONA={guardiola:[.55,.35,.10],mourinho:[.10,.30,.60],klopp:[.70,.25,.05]};
+const OA=[1.32,1.0,0.66], EX=[1.30,1.0,0.70];
+const $=id=>document.getElementById(id);
+
+/* ===== engine ===== */
+function beats(a,b){return (a===0&&b===1)||(a===1&&b===2)||(a===2&&b===0);}
+function edge(m,o){if(m===o)return 1;return beats(m,o)?1.16:0.88;}
+function eloLambdas(eA,eB){const s=(eA-eB)/210;return [Math.max(.15,Math.min(5,1.3+s/2)),Math.max(.15,Math.min(5,1.3-s/2))];}
+function buildMatrix(eA,eB){
+  const [la,lb]=eloLambdas(eA,eB); const LA=[],LB=[],M=[];
+  for(let i=0;i<3;i++){LA[i]=[];LB[i]=[];M[i]=[];for(let j=0;j<3;j++){
+    LA[i][j]=la*OA[i]*EX[j]*edge(i,j); LB[i][j]=lb*OA[j]*EX[i]*edge(j,i); M[i][j]=LA[i][j]-LB[i][j];}}
+  return {LA,LB,M};
+}
+function fictitiousPlay(M,iters=4000,capture=false,nframes=46){
+  let rc=[0,0,0],cc=[0,0,0],frames=[]; const samp=new Set();
+  if(capture) for(let f=0;f<nframes;f++) samp.add(Math.max(1,Math.round(Math.pow(iters,f/(nframes-1)))));
+  for(let t=1;t<=iters;t++){
+    let bR=0,bV=-1e9; for(let i=0;i<3;i++){let v=0;for(let j=0;j<3;j++)v+=M[i][j]*cc[j]; if(v>bV){bV=v;bR=i;}} rc[bR]++;
+    let bC=0,bCV=1e9; for(let j=0;j<3;j++){let v=0;for(let i=0;i<3;i++)v+=M[i][j]*rc[i]; if(v<bCV){bCV=v;bC=j;}} cc[bC]++;
+    if(capture&&samp.has(t)) frames.push({t,p:rc.map(x=>x/t),q:cc.map(x=>x/t)});
+  }
+  return {p:rc.map(x=>x/iters),q:cc.map(x=>x/iters),frames};
+}
+function factorial(n){let r=1;for(let i=2;i<=n;i++)r*=i;return r;}
+function poisson(k,l){return Math.exp(-l)*Math.pow(l,k)/factorial(k);}
+function dcTau(a,b,lA,lB){const rho=-0.11;
+  if(a===0&&b===0)return 1-lA*lB*rho; if(a===0&&b===1)return 1+lA*rho;
+  if(a===1&&b===0)return 1+lB*rho; if(a===1&&b===1)return 1-rho; return 1;}
+function predictMatch(ai,bi){
+  const A=TEAMS[ai],B=TEAMS[bi]; const {LA,LB,M}=buildMatrix(A[2]+20,B[2]);
+  const {p,q}=fictitiousPlay(M);
+  let eLA=0,eLB=0; for(let i=0;i<3;i++)for(let j=0;j<3;j++){eLA+=p[i]*q[j]*LA[i][j];eLB+=p[i]*q[j]*LB[i][j];}
+  let grid=[],tot=0,win=0,draw=0,loss=0;
+  for(let a=0;a<9;a++)for(let b=0;b<9;b++){let pr=poisson(a,eLA)*poisson(b,eLB);if(a<2&&b<2)pr*=dcTau(a,b,eLA,eLB);grid.push([a,b,pr]);tot+=pr;}
+  for(const g of grid){g[2]/=tot;const[a,b,pr]=g;if(a>b)win+=pr;else if(a===b)draw+=pr;else loss+=pr;}
+  grid.sort((x,y)=>y[2]-x[2]);
+  return {A,B,p,q,win,draw,loss,top:grid[0]};
+}
+const pct=x=>Math.round(x*100);
+function sampleMix(m){const r=Math.random();let a=0;for(let i=0;i<3;i++){a+=m[i];if(r<a)return i;}return 2;}
+function poissonSample(l){const L=Math.exp(-l);let k=0,p=1;do{k++;p*=Math.random();}while(p>L);return k-1;}
+function strBars(side,mix){return STRAT.map((n,i)=>`<div class="srow"><div class="lbl"><span>${n}</span><b>${pct(mix[i])}%</b></div><div class="track"><div class="fill" style="width:${pct(mix[i])}%"></div></div></div>`).join("");}
+
+/* ===== shared picker ===== */
+const selA=$("teamA"),selB=$("teamB");
+TEAMS.forEach((t,i)=>{selA.add(new Option(`${t[1]}  ${t[0]}`,i));selB.add(new Option(`${t[1]}  ${t[0]}`,i));});
+selA.value=0;selB.value=1;
+function refreshCards(){const a=TEAMS[+selA.value],b=TEAMS[+selB.value];
+  $("flagA").textContent=a[1];$("eloA").textContent=a[2];$("flagB").textContent=b[1];$("eloB").textContent=b[2];}
+selA.onchange=selB.onchange=()=>refreshCards();
+$("swap").onclick=()=>{const t=selA.value;selA.value=selB.value;selB.value=t;refreshCards();};
+refreshCards();
+
+/* ===== tabs ===== */
+const views=["predict","duel","emerge","field","campaign"];
+document.querySelectorAll(".tab").forEach(tab=>{
+  tab.onclick=()=>{
+    document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
+    tab.classList.add("active");
+    const v=tab.dataset.view;
+    views.forEach(name=>$("view-"+name).classList.toggle("active",name===v));
+    const showPicker = v==="predict"||v==="emerge"||v==="field";
+    $("picker").style.display=showPicker?"grid":"none";
+    $("pickerBtns").style.display=showPicker?"flex":"none";
+    $("run").textContent = (v==="emerge"||v==="field")?"Load matchup":"Run";
+    if(v==="field") drawField();
+  };
+});
+
+/* ===== PREDICT ===== */
+function renderPredict(r){
+  $("predictHint").style.display="none";
+  ["predictResult","predictOdds","predictStrats"].forEach(id=>$(id).style.display="block");
+  $("rFlagA").textContent=r.A[1];$("rFlagB").textContent=r.B[1];
+  $("rNameA").textContent=r.A[0];$("rNameB").textContent=r.B[0];
+  $("rScoreA").textContent=r.top[0];$("rScoreB").textContent=r.top[1];
+  let v; if(r.win>=r.draw&&r.win>=r.loss)v=`<b>${r.A[0]}</b> favoured`;
+  else if(r.loss>=r.win&&r.loss>=r.draw)v=`<b>${r.B[0]}</b> favoured`; else v=`edge to a <b>draw</b>`;
+  $("verdict").innerHTML=v+` · most likely ${r.top[0]}–${r.top[1]}`;
+  $("segA").style.flexBasis=pct(r.win)+"%";$("segD").style.flexBasis=pct(r.draw)+"%";$("segB").style.flexBasis=pct(r.loss)+"%";
+  $("segA").textContent=pct(r.win)>=8?pct(r.win)+"%":"";$("segD").textContent=pct(r.draw)>=8?pct(r.draw)+"%":"";$("segB").textContent=pct(r.loss)>=8?pct(r.loss)+"%":"";
+  $("keyA").innerHTML=`${r.A[0]} <b>${pct(r.win)}%</b>`;$("keyD").innerHTML=`Draw <b>${pct(r.draw)}%</b>`;$("keyB").innerHTML=`${r.B[0]} <b>${pct(r.loss)}%</b>`;
+  $("sNameA").textContent=r.A[0];$("sNameB").textContent=r.B[0];
+  const mk=mix=>STRAT.map((n,i)=>`<div class="srow"><div class="lbl"><span>${n}</span><b>${pct(mix[i])}%</b></div><div class="track"><div class="fill" data-w="${pct(mix[i])}"></div></div></div>`).join("");
+  $("stratsA").innerHTML=mk(r.p);$("stratsB").innerHTML=mk(r.q);
+  requestAnimationFrame(()=>requestAnimationFrame(()=>document.querySelectorAll("#predictStrats .fill[data-w]").forEach(e=>e.style.width=e.dataset.w+"%")));
+}
+$("run").onclick=()=>{
+  if(selA.value===selB.value){alert("Pick two different teams.");return;}
+  const v=document.querySelector(".tab.active").dataset.view;
+  if(v==="predict") renderPredict(predictMatch(+selA.value,+selB.value));
+  else if(v==="emerge") loadEmerge();
+  else if(v==="field") drawField();
+};
+
+/* ===== DUEL ===== */
+let duel={round:0,you:0,ai:0,userCounts:[0,0,0],M:null};
+function duelMatrix(){return buildMatrix(1900,1900).M;}
+function aiMix(){
+  const brain=$("brain").value;
+  if(brain==="nash") return fictitiousPlay(duel.M).p;
+  if(brain in PERSONA) return PERSONA[brain].slice();
+  const tot=duel.userCounts.reduce((a,b)=>a+b,0);
+  if(tot===0) return [1/3,1/3,1/3];
+  const u=duel.userCounts.map(c=>c/tot);
+  let bC=0,bV=1e9; for(let j=0;j<3;j++){let v=0;for(let i=0;i<3;i++)v+=u[i]*duel.M[i][j];if(v<bV){bV=v;bC=j;}}
+  const m=[0.08,0.08,0.08]; m[bC]+=0.76; return m;
+}
+function renderAiStrat(mix){$("aiStrat").innerHTML=strBars("b",mix);}
+function reasonText(u,a){
+  if(u===a) return `Mirrored ${STRAT_SHORT[u].toLowerCase()} — cancels out.`;
+  if(beats(u,a)){return {0:"Your attack overloaded their passive shape.",1:"Patient build-up unlocked their low block.",2:"Your deep block absorbed and countered."}[u];}
+  return {0:"Their attack overran your balanced shape.",1:"Their patience unlocked your low block.",2:"Their block absorbed your attack and countered."}[a];
+}
+function duelReset(){
+  duel={round:0,you:0,ai:0,userCounts:[0,0,0],M:duelMatrix()};
+  $("youScore").textContent="0.00";$("nashScore").textContent="0.00";$("roundNo").textContent="0";
+  $("roundCard").innerHTML='<span class="reason">Choose a tactic to start round 1.</span>';
+  $("duelVerdict").textContent="";
+  document.querySelectorAll("#view-duel .tbtn").forEach(b=>b.disabled=false);
+  const b=$("brain").value;
+  $("brainLabel").textContent = b==="nash"?"Nash":(b==="adaptive"?"Adaptive":b[0].toUpperCase()+b.slice(1));
+  renderAiStrat(aiMix());
+}
+document.querySelectorAll("#view-duel .tbtn").forEach(btn=>{
+  btn.onclick=()=>{
+    if(duel.round>=10) return;
+    const u=+btn.dataset.t; const mix=aiMix(); const a=sampleMix(mix);
+    duel.userCounts[u]++;
+    const gd=duel.M[u][a]; duel.you+=gd; duel.ai-=gd; duel.round++;
+    const col = gd>0.02?"var(--amber)":gd<-0.02?"var(--cyan)":"var(--dim)";
+    $("roundCard").innerHTML=
+      `<div class="reason">You played <b style="color:var(--amber)">${STRAT_SHORT[u]}</b> · Engine played <b style="color:var(--cyan)">${STRAT_SHORT[a]}</b></div>`+
+      `<div class="big" style="color:${col}">${gd>=0?"+":""}${gd.toFixed(2)} xGD</div>`+
+      `<div class="reason">${reasonText(u,a)}</div>`;
+    $("youScore").textContent=(duel.you>=0?"+":"")+duel.you.toFixed(2);
+    $("nashScore").textContent=(duel.ai>=0?"+":"")+duel.ai.toFixed(2);
+    $("roundNo").textContent=duel.round;
+    renderAiStrat($("brain").value==="adaptive"?aiMix():mix);
+    if(duel.round>=10){
+      document.querySelectorAll("#view-duel .tbtn").forEach(b=>b.disabled=true);
+      const b=$("brain").value; let msg;
+      if(duel.you>0.3) msg = b==="nash"
+        ? `You finished ${duel.you.toFixed(2)} up — but against a true equilibrium that's variance, not skill. Run it again and it drifts back toward zero.`
+        : `You finished ${duel.you.toFixed(2)} up — you found and exploited the engine's predictable bias. That's why a real opponent must mix.`;
+      else if(duel.you<-0.3) msg = b==="nash"
+        ? `The equilibrium held: you're ${duel.you.toFixed(2)} down. No strategy beats it long-run — the point of Nash.`
+        : `You're ${duel.you.toFixed(2)} down — the engine read your pattern. Try mixing less predictably.`;
+      else msg = `Dead even (${duel.you.toFixed(2)}). Neither side could exploit the other — exactly what equilibrium looks like.`;
+      $("duelVerdict").innerHTML="<b>Final:</b> "+msg+' <button class="ghost" id="again" style="margin-left:8px">Play again</button>';
+      $("again").onclick=duelReset;
+    }
+  };
+});
+$("duelReset").onclick=duelReset;
+$("brain").onchange=duelReset;
+duelReset();
+
+/* ===== EMERGE ===== */
+let emergeFrames=null,emergeTimer=null;
+function loadEmerge(){
+  const A=TEAMS[+selA.value],B=TEAMS[+selB.value];
+  $("eNameA").textContent=A[0];$("eNameB").textContent=B[0];
+  const {M}=buildMatrix(A[2],B[2]);
+  emergeFrames=fictitiousPlay(M,3000,true).frames;
+  buildEbars(); playEmerge();
+}
+function buildEbars(){
+  const tmpl=()=>STRAT.map((n,i)=>`<div class="ebar-row"><div class="lbl"><span>${n}</span><b class="ev" data-i="${i}">0%</b></div><div class="etrack"><div class="efill" data-i="${i}"></div></div></div>`).join("");
+  $("ebarsA").innerHTML=tmpl(); $("ebarsB").innerHTML=tmpl();
+  $("ebarsA").querySelectorAll(".efill").forEach(e=>e.style.background="linear-gradient(90deg,var(--amber-dim),var(--amber))");
+  $("ebarsB").querySelectorAll(".efill").forEach(e=>e.style.background="linear-gradient(90deg,#3aa99a,var(--cyan))");
+}
+function setEbars(root,mix){const el=$(root);
+  el.querySelectorAll(".efill").forEach(e=>e.style.width=pct(mix[+e.dataset.i])+"%");
+  el.querySelectorAll(".ev").forEach(e=>e.textContent=pct(mix[+e.dataset.i])+"%");}
+function playEmerge(){
+  if(!emergeFrames){loadEmerge();return;}
+  clearInterval(emergeTimer);
+  let k=0; const reduce=matchMedia("(prefers-reduced-motion:reduce)").matches;
+  $("emergeNote").textContent="Both managers start by committing 100% to one tactic, then learn by best-responding…";
+  const show=()=>{const f=emergeFrames[k];$("iterReadout").innerHTML=`<small>iteration</small>${f.t}`;setEbars("ebarsA",f.p);setEbars("ebarsB",f.q);
+    k++; if(k>=emergeFrames.length){clearInterval(emergeTimer);
+      $("emergeNote").innerHTML="<b>Converged.</b> These frequencies are the Nash equilibrium — the mix neither manager can improve on. Exactly what the Predict tab uses.";}};
+  if(reduce){ while(k<emergeFrames.length) show(); }
+  else { show(); emergeTimer=setInterval(show,75); }
+}
+$("playEmerge").onclick=()=>{ if(!emergeFrames) loadEmerge(); else playEmerge(); };
+$("replayEmerge").onclick=playEmerge;
+
+/* ===== BATTLEFIELD ===== */
+function drawField(){
+  const svg=$("rps");
+  const nodes={0:[150,42],1:[252,222],2:[48,222]};
+  const lbl={0:"Attack",1:"Balanced",2:"Park bus"};
+  let s=`<defs><marker id="ah" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="var(--amber)"/></marker></defs>`;
+  const arc=(a,b)=>{const [x1,y1]=nodes[a],[x2,y2]=nodes[b];const dx=x2-x1,dy=y2-y1,L=Math.hypot(dx,dy);
+    const mx=(x1+x2)/2,my=(y1+y2)/2,nx=-dy/L,ny=dx/L,cx=mx+nx*30,cy=my+ny*30,t=0.17;
+    const sx=x1+dx*t,sy=y1+dy*t,ex=x2-dx*t,ey=y2-dy*t;
+    return `<path d="M${sx},${sy} Q${cx},${cy} ${ex},${ey}" fill="none" stroke="var(--amber)" stroke-width="2.2" stroke-dasharray="5 4" marker-end="url(#ah)" opacity="0.85"><animate attributeName="stroke-dashoffset" from="18" to="0" dur="0.9s" repeatCount="indefinite"/></path>`;};
+  s+=arc(0,1)+arc(1,2)+arc(2,0);
+  for(const k in nodes){const [x,y]=nodes[k];
+    s+=`<circle cx="${x}" cy="${y}" r="32" fill="var(--panel-hi)" stroke="var(--line-bright)" stroke-width="1.5"/>`+
+       `<text x="${x}" y="${y+4}" text-anchor="middle" font-family="Space Mono, monospace" font-size="9" fill="var(--chalk)">${lbl[k]}</text>`;}
+  svg.innerHTML=s;
+  const A=TEAMS[+selA.value],B=TEAMS[+selB.value]; const {M}=buildMatrix(A[2],B[2]);
+  let mx=0; for(let i=0;i<3;i++)for(let j=0;j<3;j++)mx=Math.max(mx,Math.abs(M[i][j]));
+  const colorFor=v=>{const t=Math.min(1,Math.abs(v)/(mx||1));return v>=0?`rgba(95,192,127,${0.22+0.6*t})`:`rgba(224,129,110,${0.22+0.6*t})`;};
+  let h=`<tr><th></th><th colspan="3">${B[0]} plays →</th></tr><tr><th>${A[0]} ↓</th>`;
+  STRAT_SHORT.forEach(s2=>h+=`<th>${s2}</th>`); h+="</tr>";
+  for(let i=0;i<3;i++){h+=`<tr><th>${STRAT_SHORT[i]}</th>`;
+    for(let j=0;j<3;j++){const v=M[i][j];h+=`<td style="background:${colorFor(v)}" data-i="${i}" data-j="${j}">${v>=0?"+":""}${v.toFixed(2)}</td>`;}
+    h+="</tr>";}
+  $("heat").innerHTML=h;
+  $("heat").querySelectorAll("td").forEach(td=>{const i=+td.dataset.i,j=+td.dataset.j,v=M[i][j];
+    td.onmouseenter=()=>{let rel; if(i===j)rel=`Both play ${STRAT_SHORT[i].toLowerCase()} — it cancels out.`;
+      else if(beats(i,j))rel=`${STRAT_SHORT[i]} beats ${STRAT_SHORT[j].toLowerCase()}.`; else rel=`${STRAT_SHORT[j]} beats ${STRAT_SHORT[i].toLowerCase()}.`;
+      $("heatReason").innerHTML=`<b>${A[0]} ${STRAT_SHORT[i].toLowerCase()} vs ${B[0]} ${STRAT_SHORT[j].toLowerCase()}:</b> expected goal diff <b style="color:${v>=0?'var(--good)':'var(--bad)'}">${v>=0?"+":""}${v.toFixed(2)}</b>. ${rel}`;};
+  });
+}
+
+/* ===== CAMPAIGN ===== */
+const campSel=$("campNation");
+TEAMS.map((t,i)=>i).sort((a,b)=>TEAMS[b][2]-TEAMS[a][2]).forEach(i=>campSel.add(new Option(`${TEAMS[i][1]}  ${TEAMS[i][0]}  (${TEAMS[i][2]})`,i)));
+const ROUND_NAMES=["Round of 16","Quarter-final","Semi-final","Final"];
+let camp=null;
+function top16(userIdx){let idx=TEAMS.map((t,i)=>i).sort((a,b)=>TEAMS[b][2]-TEAMS[a][2]);let top=idx.slice(0,16);if(!top.includes(userIdx))top[15]=userIdx;return top;}
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function userFirst(pair,u){return pair[1]===u?[pair[1],pair[0]]:pair;}
+function resolveMatch(ai,bi,forcedTA){
+  const eA=TEAMS[ai][2],eB=TEAMS[bi][2]; const {LA,LB,M}=buildMatrix(eA,eB); const {p,q}=fictitiousPlay(M,1500);
+  const tA=(forcedTA!=null)?forcedTA:sampleMix(p); const tB=sampleMix(q);
+  let ga=poissonSample(LA[tA][tB]), gb=poissonSample(LB[tA][tB]); let pens=false,winner;
+  if(ga===gb){const pA=1/(1+Math.pow(10,-(eA-eB)/400));winner=Math.random()<pA?ai:bi;pens=true;}
+  else winner=ga>gb?ai:bi;
+  return {ga,gb,winner,pens,tB};
+}
+function oppMix(userIdx,oppIdx){const {M}=buildMatrix(TEAMS[userIdx][2],TEAMS[oppIdx][2]);return fictitiousPlay(M,1500).q;}
+$("campStart").onclick=()=>{
+  const u=+campSel.value;
+  const top=top16(u); const pairs=[]; const s=shuffle(top.slice());
+  for(let k=0;k<16;k+=2)pairs.push(userFirst([s[k],s[k+1]],u));
+  let um=pairs.findIndex(p=>p[0]===u);
+  camp={user:u, round:0, matches:pairs, userMatch:um, results:[]};
+  $("campStartScreen").style.display="none"; $("campGame").style.display="block";
+  renderPress();
+};
+function renderPath(){
+  let h="";
+  for(let r=0;r<4;r++){
+    const done=camp.results[r];
+    let cls=r===camp.round?"cur":""; let res,resCls="pend";
+    if(done){const youWon=done.winner===camp.user;resCls=youWon?"w":"l";
+      res=`${TEAMS[done.a][0]} ${done.ga}–${done.gb}${done.pens?" (p)":""} ${TEAMS[done.b][0]}`;}
+    else if(r===camp.round){const opp=camp.matches[camp.userMatch][1];res=`vs ${TEAMS[opp][0]}`;}
+    else res="—";
+    h+=`<div class="path-row ${cls}"><span class="rd">${ROUND_NAMES[r].replace("Round of 16","R16").replace("Quarter-final","QF").replace("Semi-final","SF")}</span><span>${res}</span><span class="res ${resCls}">${done?(done.winner===camp.user?"WON":"OUT"):(r===camp.round?"NOW":"")}</span></div>`;
+  }
+  $("campPath").innerHTML=h;
+}
+function renderPress(){
+  const m=camp.matches[camp.userMatch]; const opp=m[1];
+  $("campRound").textContent=ROUND_NAMES[camp.round];
+  $("campSub").textContent=`${TEAMS[camp.user][1]} ${TEAMS[camp.user][0]}  —  your run`;
+  $("oppFlag").textContent=TEAMS[opp][1]; $("oppName").textContent=TEAMS[opp][0]; $("oppElo").textContent="ELO "+TEAMS[opp][2];
+  $("oppStrat").innerHTML=strBars("b",oppMix(camp.user,opp));
+  $("campPress").style.display="block"; $("campResultBox").style.display="none";
+  document.querySelectorAll(".ctbtn").forEach(b=>b.disabled=false);
+  renderPath();
+}
+function playRound(tactic){
+  const m=camp.matches[camp.userMatch];
+  // resolve all matches this round; user's uses chosen tactic
+  const roundResults=camp.matches.map((pair,mi)=>{
+    const forced=(mi===camp.userMatch)?tactic:null;
+    const r=resolveMatch(pair[0],pair[1],forced);
+    return {a:pair[0],b:pair[1],...r};
+  });
+  const ur=roundResults[camp.userMatch];
+  camp.results[camp.round]={a:m[0],b:m[1],ga:ur.ga,gb:ur.gb,winner:ur.winner,pens:ur.pens};
+  const youWon=ur.winner===camp.user;
+  document.querySelectorAll(".ctbtn").forEach(b=>b.disabled=true);
+  $("campPress").style.display="none";
+  const box=$("campResultBox"); box.style.display="block";
+  if(!youWon){
+    box.innerHTML=`<div class="sc">${TEAMS[m[0]][0]} ${ur.ga}–${ur.gb} ${TEAMS[m[1]][0]}</div>`+
+      `<div class="badge lose">Eliminated · ${ROUND_NAMES[camp.round]}${ur.pens?" · on penalties":""}</div>`+
+      `<p class="note">${ur.pens?"Heartbreak on penalties. ":""}Your run ends here. The trophy is decided by fine margins — try a different plan, or a different nation.</p>`+
+      `<div class="btnrow" style="justify-content:center"><button class="go" id="campAgain">New campaign</button></div>`;
+    renderPath(); $("campAgain").onclick=resetCampaign; return;
+  }
+  if(camp.round===3){
+    box.innerHTML=`<div class="champion"><div class="trophy">🏆</div><div class="ttl">${TEAMS[camp.user][0]} are Champions!</div>`+
+      `<div class="badge win">Won the final ${ur.ga}–${ur.gb}${ur.pens?" on penalties":""}</div>`+
+      `<p class="note">Four ties, four wins. You read the equilibrium and made the right calls when it mattered.</p>`+
+      `<div class="btnrow" style="justify-content:center"><button class="go" id="campAgain">Play again</button></div></div>`;
+    renderPath(); $("campAgain").onclick=resetCampaign; return;
+  }
+  // advance: build next round from winners
+  const winners=roundResults.map(r=>r.winner);
+  const next=[]; for(let k=0;k<winners.length;k+=2) next.push([winners[k],winners[k+1]]);
+  camp.round++; camp.userMatch=Math.floor(camp.userMatch/2);
+  camp.matches=next.map(p=>userFirst(p,camp.user));
+  box.innerHTML=`<div class="sc">${TEAMS[m[0]][0]} ${ur.ga}–${ur.gb} ${TEAMS[m[1]][0]}</div>`+
+    `<div class="badge win">Through to the ${ROUND_NAMES[camp.round]}${ur.pens?" · on penalties":""}</div>`+
+    `<div class="btnrow" style="justify-content:center"><button class="go" id="campNext">Next match →</button></div>`;
+  renderPath(); $("campNext").onclick=renderPress;
+}
+function resetCampaign(){camp=null;$("campGame").style.display="none";$("campStartScreen").style.display="block";}
+document.querySelectorAll(".ctbtn").forEach(btn=>btn.onclick=()=>playRound(+btn.dataset.t));
+</script>
+</body>
+</html>
